@@ -59,10 +59,10 @@ https://github.com/wang-xinyu/tensorrtx
 
 ```bash
 project dir
-	├── flower_classify_dataset  # 分类项目所用到的数据集，5种花的分类，完整数据集可通过下方链接获取
-	│   ├── train
-	│   ├── val
-	│   └── test
+    ├── flower_classify_dataset  # 分类项目所用到的数据集，5种花的分类，完整数据集可通过下方链接获取
+    │   ├── train
+    │   ├── val
+    │   └── test
     ├── Camvid_segment_dataset  # 语义分割项目所用到的数据集，完整数据集可通过下方链接获取
     │   ├── images  # 原始图像目录
     |   │   ├── train
@@ -71,9 +71,9 @@ project dir
     │   ├── labels  # mask标签目录，类别index所构成
     │   ├── train.lst  # 原始图像路径\t标签路径
     │   ├── val.lst  # 原始图像路径\t标签路径
-	│   └── labels.txt  # 标签index和其所对应的颜色及类别
-	├── VGG16
-	│   ├── PyTorch
+    │   └── labels.txt  # 标签index和其所对应的颜色及类别
+    ├── VGG16
+    │   ├── PyTorch
     │   │   ├── dataset.py
     │   │   ├── model  # 运行train.py时自动生成，pth模型会保存到其中
     │   │   ├── pytorch_inference.py  # 使用pytorch推理
@@ -109,32 +109,32 @@ project dir
     │               ├── trt_infer.py  # onnx 转 tensorrt engine 及使用 engine 推理
     │               └── vgg.py
     ├── ResNet50  # 文件结构基本同VGG16
-	│   ├── PyTorch
-	│   └── TensorRT
-	│       ├── C++
-	│       │   ├── api_model
-	│       │   └── onnx_parser
-	│       └── python
-	│           ├── api_model
-	│           └── onnx_parser
-	├── UNet  # 文件结构基本同VGG16
-	│   ├── PyTorch
-	│   └── TensorRT
-	│       ├── C++
-	│       │   ├── api_model
-	│       │   └── onnx_parser
-	│       └── python
-	│           ├── api_model
-	│           └── onnx_parser
-	└── Deeplabv3+  # 文件结构基本同VGG16
-	    ├── PyTorch
-	    └── TensorRT
-	        ├── C++
-	        │   ├── api_model
-	        │   └── onnx_parser
-	        └── python
-	            ├── api_model
-	            └── onnx_parser
+    │   ├── PyTorch
+    │   └── TensorRT
+    │       ├── C++
+    │       │   ├── api_model
+    │       │   └── onnx_parser
+    │       └── python
+    │           ├── api_model
+    │           └── onnx_parser
+    ├── UNet  # 文件结构基本同VGG16
+    │   ├── PyTorch
+    │   └── TensorRT
+    │       ├── C++
+    │       │   ├── api_model
+    │       │   └── onnx_parser
+    │       └── python
+    │           ├── api_model
+    │           └── onnx_parser
+    └── Deeplabv3+  # 文件结构基本同VGG16
+        ├── PyTorch
+	└── TensorRT
+	    ├── C++
+	    │   ├── api_model
+	    │   └── onnx_parser
+	    └── python
+	        ├── api_model
+	        └── onnx_parser
 ```
 
 - 具体到各工程的运行，请阅读具体工程目录下的 README

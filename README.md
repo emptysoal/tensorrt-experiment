@@ -46,15 +46,6 @@
 
 备注：Deeplabv3+ 的 backbone 为 resnet50
 
-## 参考链接
-
-```bash
-https://docs.nvidia.com/deeplearning/tensorrt/api/c_api/  # TensorRT官方文档（C++ api）
-https://docs.nvidia.com/deeplearning/tensorrt/api/python_api/  # TensorRT官方文档（python api）
-https://github.com/NVIDIA/trt-samples-for-hackathon-cn/tree/master/cookbook
-https://github.com/wang-xinyu/tensorrtx
-```
-
 ## 文件说明
 
 ```bash

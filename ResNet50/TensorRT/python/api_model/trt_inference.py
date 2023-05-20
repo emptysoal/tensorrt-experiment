@@ -1,0 +1,267 @@
+# -*- coding: utf-8 -*-
+
+"""
+    把 npz权重文件（.pth模型转换而成）, 转成 tensorrt 序列化模型文件
+    并使用 tensorrt runtime 推理
+"""
+
+import os
+import time
+
+import cv2
+import numpy as np
+import tensorrt as trt
+from cuda import cudart
+
+import calibrator
+
+INPUT_NAME = "data"
+OUTPUT_NAME = "prob"
+classes_num = 5
+index2class_name = {0: "daisy", 1: "dandelion", 2: "roses", 3: "sunflowers", 4: "tulips"}
+input_size = (224, 224)  # (rows, cols)
+para_file = "./para.npz"
+trt_file = "./model.plan"
+data_path = "../../../../flower_classify_dataset"
+val_data_path = data_path + "/int8"  # 用于 int8 量化
+test_data_path = data_path + "/test"  # 用于推理
+
+# for FP16 mode
+use_fp16_mode = False
+# for INT8 model
+use_int8_mode = False
+n_calibration = 20
+cache_file = "./int8.cache"
+calibration_data_path = val_data_path
+
+np.set_printoptions(precision=3, linewidth=160, suppress=True)
+
+logger = trt.Logger(trt.Logger.ERROR)
+
+
+def add_batch_norm_2d(network, para, layer_name, input_tensor, eps=1e-5):
+    # reference: https://blog.csdn.net/wq_0708/article/details/121400682
+    gamma = np.ascontiguousarray(para[layer_name + ".weight"])
+    beta = np.ascontiguousarray(para[layer_name + ".bias"])
+    mean = np.ascontiguousarray(para[layer_name + ".running_mean"])
+    var = np.ascontiguousarray(para[layer_name + ".running_var"])
+
+    scale = trt.Weights(gamma / np.sqrt(var + eps))
+    shift = trt.Weights(beta - mean / np.sqrt(var + eps) * gamma)
+    power = trt.Weights(np.ones(len(var), dtype=np.float32))
+
+    scale_layer = network.add_scale(input_tensor, trt.ScaleMode.CHANNEL, shift, scale, power)
+
+    return scale_layer
+
+
+def bottleneck(network, para, input_tensor, inch: int, outch: int, stride: int, layer_name: str):
+    w = np.ascontiguousarray(para[layer_name + ".conv1.weight"])
+    b = np.zeros(w.shape[0], dtype=np.float32)
+    conv1 = network.add_convolution_nd(input_tensor, outch, [1, 1], trt.Weights(w), trt.Weights(b))
+    bn1 = add_batch_norm_2d(network, para, layer_name + ".bn1", conv1.get_output(0))
+    relu1 = network.add_activation(bn1.get_output(0), trt.ActivationType.RELU)
+
+    w = np.ascontiguousarray(para[layer_name + ".conv2.weight"])
+    b = np.zeros(w.shape[0], dtype=np.float32)
+    conv2 = network.add_convolution_nd(relu1.get_output(0), outch, [3, 3], trt.Weights(w), trt.Weights(b))
+    conv2.stride_nd = [stride, stride]
+    conv2.padding_nd = [1, 1]
+    bn2 = add_batch_norm_2d(network, para, layer_name + ".bn2", conv2.get_output(0))
+    relu2 = network.add_activation(bn2.get_output(0), trt.ActivationType.RELU)
+
+    w = np.ascontiguousarray(para[layer_name + ".conv3.weight"])
+    b = np.zeros(w.shape[0], dtype=np.float32)
+    conv3 = network.add_convolution_nd(relu2.get_output(0), outch * 4, [1, 1], trt.Weights(w), trt.Weights(b))
+    bn3 = add_batch_norm_2d(network, para, layer_name + ".bn3", conv3.get_output(0))
+
+    if stride != 1 or inch != outch * 4:
+        w = np.ascontiguousarray(para[layer_name + ".downsample.0.weight"])
+        b = np.zeros(w.shape[0], dtype=np.float32)
+        conv4 = network.add_convolution_nd(input_tensor, outch * 4, [1, 1], trt.Weights(w), trt.Weights(b))
+        conv4.stride_nd = [stride, stride]
+
+        bn4 = add_batch_norm_2d(network, para, layer_name + ".downsample.1", conv4.get_output(0))
+
+        ew1 = network.add_elementwise(bn4.get_output(0), bn3.get_output(0), trt.ElementWiseOperation.SUM)
+    else:
+        ew1 = network.add_elementwise(input_tensor, bn3.get_output(0), trt.ElementWiseOperation.SUM)
+
+    relu3 = network.add_activation(ew1.get_output(0), trt.ActivationType.RELU)
+
+    return relu3
+
+
+def build_network(network, profile, config):
+    input_tensor = network.add_input(INPUT_NAME, trt.float32, [-1, 3, input_size[0], input_size[1]])
+    profile.set_shape(input_tensor.name, [1, 3, input_size[0], input_size[1]], [4, 3, input_size[0], input_size[1]],
+                      [8, 3, input_size[0], input_size[1]])
+    config.add_optimization_profile(profile)
+
+    para = np.load(para_file)
+
+    w = np.ascontiguousarray(para["conv1.weight"])
+    b = np.zeros(w.shape[0], dtype=np.float32)
+    conv1 = network.add_convolution_nd(input_tensor, 64, [7, 7], trt.Weights(w), trt.Weights(b))
+    conv1.stride_nd = [2, 2]
+    conv1.padding_nd = [3, 3]
+
+    bn1 = add_batch_norm_2d(network, para, "bn1", conv1.get_output(0))
+
+    relu1 = network.add_activation(bn1.get_output(0), trt.ActivationType.RELU)
+
+    pool1 = network.add_pooling_nd(relu1.get_output(0), trt.PoolingType.MAX, [3, 3])
+    pool1.stride_nd = [2, 2]
+    pool1.padding_nd = [1, 1]
+
+    x = bottleneck(network, para, pool1.get_output(0), 64, 64, 1, "layer1.0")
+    x = bottleneck(network, para, x.get_output(0), 256, 64, 1, "layer1.1")
+    x = bottleneck(network, para, x.get_output(0), 256, 64, 1, "layer1.2")
+
+    x = bottleneck(network, para, x.get_output(0), 256, 128, 2, "layer2.0")
+    x = bottleneck(network, para, x.get_output(0), 512, 128, 1, "layer2.1")
+    x = bottleneck(network, para, x.get_output(0), 512, 128, 1, "layer2.2")
+    x = bottleneck(network, para, x.get_output(0), 512, 128, 1, "layer2.3")
+
+    x = bottleneck(network, para, x.get_output(0), 512, 256, 2, "layer3.0")
+    x = bottleneck(network, para, x.get_output(0), 1024, 256, 1, "layer3.1")
+    x = bottleneck(network, para, x.get_output(0), 1024, 256, 1, "layer3.2")
+    x = bottleneck(network, para, x.get_output(0), 1024, 256, 1, "layer3.3")
+    x = bottleneck(network, para, x.get_output(0), 1024, 256, 1, "layer3.4")
+    x = bottleneck(network, para, x.get_output(0), 1024, 256, 1, "layer3.5")
+
+    x = bottleneck(network, para, x.get_output(0), 1024, 512, 2, "layer4.0")
+    x = bottleneck(network, para, x.get_output(0), 2048, 512, 1, "layer4.1")
+    x = bottleneck(network, para, x.get_output(0), 2048, 512, 1, "layer4.2")
+
+    pool2 = network.add_pooling_nd(x.get_output(0), trt.PoolingType.AVERAGE, [7, 7])
+    w = np.ascontiguousarray(para["fc.weight"])
+    b = np.ascontiguousarray(para["fc.bias"])
+    fc1 = network.add_fully_connected(pool2.get_output(0), classes_num, trt.Weights(w), trt.Weights(b))
+
+    fc1.get_output(0).name = OUTPUT_NAME
+    network.mark_output(fc1.get_output(0))
+
+
+def get_engine():
+    if os.path.exists(trt_file):
+        with open(trt_file, "rb") as f:  # read .plan file if exists
+            engine_string = f.read()
+        if engine_string is None:
+            print("Failed getting serialized engine!")
+            return
+        print("Succeeded getting serialized engine!")
+    else:
+        builder = trt.Builder(logger)
+        network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        profile = builder.create_optimization_profile()
+        config = builder.create_builder_config()
+        config.max_workspace_size = 1 << 30  # set workspace for TensorRT
+        if use_fp16_mode:
+            config.set_flag(trt.BuilderFlag.FP16)
+        if use_int8_mode:
+            config.set_flag(trt.BuilderFlag.INT8)
+            config.int8_calibrator = calibrator.MyCalibrator(calibration_data_path, n_calibration,
+                                                             (16, 3, input_size[0], input_size[1]), cache_file)
+
+        build_network(network, profile, config)
+
+        engine_string = builder.build_serialized_network(network, config)
+        if engine_string is None:
+            print("Failed building engine!")
+            return
+        print("Succeeded building engine!")
+        with open(trt_file, "wb") as f:
+            f.write(engine_string)
+            print("Succeeded saving .plan file!")
+
+    engine = trt.Runtime(logger).deserialize_cuda_engine(engine_string)
+
+    return engine
+
+
+def image_preprocess(np_img):
+    img = cv2.cvtColor(np_img, cv2.COLOR_BGR2RGB)  # bgr to rgb
+    # resize
+    img = cv2.resize(img, (int(input_size[1] * 1.143), int(input_size[0] * 1.143)), interpolation=cv2.INTER_LINEAR)
+    # crop
+    crop_top = (img.shape[0] - input_size[0]) // 2
+    crop_left = (img.shape[1] - input_size[1]) // 2
+    img = img[crop_top:crop_top + input_size[0], crop_left:crop_left + input_size[1], :]
+    # normalize
+    mean = [0.485, 0.456, 0.406]
+    std = [0.229, 0.224, 0.225]
+    data = img.astype(np.float32)
+    data = (data / 255. - np.array(mean)) / np.array(std)
+    # transpose
+    data = data.transpose((2, 0, 1)).astype(np.float32)  # HWC to CHW
+
+    return data
+
+
+def inference_one(data_input, context, buffer_h, buffer_d):
+    """
+        使用tensorrt runtime 做一次推理
+    :param data_input: 经过预处理（缩放、裁剪、归一化等）后的图像数据（ndarray类型）
+    """
+    buffer_h[0] = np.ascontiguousarray(data_input)
+    cudart.cudaMemcpy(buffer_d[0], buffer_h[0].ctypes.data, buffer_h[0].nbytes,
+                      cudart.cudaMemcpyKind.cudaMemcpyHostToDevice)
+
+    context.execute_v2(buffer_d)  # inference
+
+    cudart.cudaMemcpy(buffer_h[1].ctypes.data, buffer_d[1], buffer_h[1].nbytes,
+                      cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost)
+
+    outs = buffer_h[-1].reshape(-1)
+    predict = np.exp(outs)
+    predict = predict / np.sum(predict)
+    cls = int(np.argmax(predict))
+    score = predict[cls]
+
+    return index2class_name[cls], score
+
+
+if __name__ == '__main__':
+    engine = get_engine()
+
+    n_io = engine.num_bindings
+    l_tensor_name = [engine.get_binding_name(i) for i in range(n_io)]
+    n_input = np.sum([engine.binding_is_input(i) for i in range(n_io)])
+
+    context = engine.create_execution_context()
+    context.set_binding_shape(0, [1, 3, input_size[0], input_size[1]])
+    for i in range(n_io):
+        print("[%2d]%s->" % (i, "Input " if i < n_input else "Output"), engine.get_binding_dtype(i),
+              engine.get_binding_shape(i), context.get_binding_shape(i), l_tensor_name[i])
+
+    buffer_h = []
+    for i in range(n_io):
+        buffer_h.append(np.empty(context.get_binding_shape(i), dtype=trt.nptype(engine.get_binding_dtype(i))))
+    buffer_d = []
+    for i in range(n_io):
+        buffer_d.append(cudart.cudaMalloc(buffer_h[i].nbytes)[1])
+
+    total_cost = 0
+    img_count = 0
+    for image_name in os.listdir(test_data_path):
+        image_path = os.path.join(test_data_path, image_name)
+        if image_path.endswith("jpg") or image_path.endswith("jpeg"):
+            image = cv2.imread(image_path, cv2.IMREAD_COLOR)  # read image
+
+            start = time.time()
+            input_data = image_preprocess(image)
+            input_data = np.expand_dims(input_data, axis=0)  # add batch size dimension
+
+            cate, prob = inference_one(input_data, context, buffer_h, buffer_d)
+            print("Image name: %20s, Classify: %10s, prob: %.2f" % (image_name, cate, prob))
+            end = time.time()
+
+            total_cost += end - start
+            img_count += 1
+
+    print("Total image num is: %d, inference total cost is: %.3f, average cost is: %.3f" % (
+        img_count, total_cost, total_cost / img_count))
+
+    for bd in buffer_d:
+        cudart.cudaFree(bd)

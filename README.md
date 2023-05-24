@@ -25,17 +25,17 @@
 
 |            | PyTorch |  ONNX  | Python trt onnxparser | Python trt api | C++ trt onnxparser | C++ trt api |
 | ---------- | :-----: | :----: | :-------------------: | :------------: | :----------------: | :---------: |
-| VGG16      |  51 ms  | 37 ms  |         8 ms          |      8 ms      |        5 ms        |    5 ms     |
-| ResNet50   |  53 ms  | 32 ms  |         7 ms          |      7 ms      |        4 ms        |    4 ms     |
-| UNet       | 132 ms  | 129 ms |         26 ms         |     26 ms      |       26 ms        |    23 ms    |
-| Deeplabv3+ | 175 ms  | 123 ms |         63 ms         |     59 ms      |       61 ms        |    57 ms    |
+| VGG16      |  93 ms  | 74 ms  |         9 ms          |      9 ms      |        5 ms        |    5 ms     |
+| ResNet50   |  96 ms  | 75 ms  |         9 ms          |      9 ms      |        5 ms        |    5 ms     |
+| UNet       | 181 ms  | 152 ms |         26 ms         |     26 ms      |       27 ms        |    26 ms    |
+| Deeplabv3+ | 208 ms  | 158 ms |         28 ms         |     30 ms      |       26 ms        |    25 ms    |
 
 - TensorRT **Int8量化**
 
 |            | Python trt onnxparser | Python trt api | C++ trt onnxparser | C++ trt api |
 | ---------- | :-------------------: | :------------: | :----------------: | :---------: |
-| ResNet50   |         6 ms          |      6 ms      |        3 ms        |    3 ms     |
-| Deeplabv3+ |         53 ms         |     50 ms      |       52 ms        |    48 ms    |
+| ResNet50   |         6 ms          |      6 ms      |        3 ms        |    2 ms     |
+| Deeplabv3+ |         15 ms         |     15 ms      |       11 ms        |    10 ms    |
 
 补充：int8量化前后精度对比
 
@@ -136,8 +136,7 @@ project dir
 ### 宿主机基础环境
 
 - Ubuntu 16.04
-- GPU：GeForce GTX 1080Ti
-- CUDA 11.2
+- GPU：GeForce RTX 2080 Ti
 - docker，nvidia-docker
 
 ### 基础镜像拉取

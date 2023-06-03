@@ -31,6 +31,7 @@ private:
     size_t input_count_;
     std::string calib_table_name_;
     bool read_cache_;
+    float* batch_data;
     void* device_input_;
     std::vector<char> calib_cache_;
 };

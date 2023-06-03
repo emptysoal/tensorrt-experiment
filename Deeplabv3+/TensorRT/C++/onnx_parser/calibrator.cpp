@@ -33,19 +33,29 @@ int read_files_in_dir2(const char *p_dir_name, std::vector<std::string> &file_na
 }
 
 // refer pytorch training
-cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h)
+std::vector<float> preprocess_img(cv::Mat& img, int input_w, int input_h)
 {
+    int elements = 3 * input_h * input_w;
+
     // resize
     cv::Mat resize_img;
     cv::resize(img, resize_img, cv::Size(input_w, input_h));
-    // Type conversion, convert unsigned int 8 to float 32
-    cv::Mat img_float;
-    resize_img.convertTo(img_float, CV_32FC3, 1.f / 255.0);
 
-    cv::Mat pr_img;
-    pr_img = img_float.clone();
+    // transpose((2, 0, 1)) and bgr to rgb and normalize
+    uchar* uc_pixel = resize_img.data;
+    float norm_data[elements];  // normalized data
+    for (int i = 0; i < input_h * input_w; i++)
+    {
+        norm_data[i] = ((float)uc_pixel[2] / 255.0 - 0.485) / 0.229;  // R-0.485
+        norm_data[i + input_h * input_w] = ((float)uc_pixel[1] / 255.0 - 0.456) / 0.224;
+        norm_data[i + 2 * input_h * input_w] = ((float)uc_pixel[0] / 255.0 - 0.406) / 0.225;
+        uc_pixel += 3;
+    }
 
-    return pr_img;
+    std::vector<float> result(elements);
+    memcpy(result.data(), norm_data, elements * sizeof(float));
+
+    return result;
 }
 
 
@@ -59,6 +69,8 @@ Int8EntropyCalibrator2::Int8EntropyCalibrator2(int batch_size, int input_w, int 
     , read_cache_(read_cache)
 {
     input_count_ = 3 * input_w * input_h * batch_size;
+    // allocate memory for a batch of data, batchData is for CPU, deviceInput is for GPU
+    batch_data = new float[input_count_];
     cudaMalloc(&device_input_, input_count_ * sizeof(float));
     read_files_in_dir2(img_dir, img_files_);
 }
@@ -66,6 +78,9 @@ Int8EntropyCalibrator2::Int8EntropyCalibrator2(int batch_size, int input_w, int 
 Int8EntropyCalibrator2::~Int8EntropyCalibrator2()
 {
     cudaFree(device_input_);
+    if (batch_data) {
+        delete[] batch_data;
+    }
 }
 
 int Int8EntropyCalibrator2::getBatchSize() const noexcept
@@ -77,7 +92,7 @@ bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int
 {
     if (img_idx_ + batch_size_ > (int)img_files_.size()) { return false; }
 
-    std::vector<cv::Mat> input_imgs_;
+    float *ptr = batch_data;
     for (int i = img_idx_; i < img_idx_ + batch_size_; i++)
     {
         std::cout << img_files_[i] << "  " << i << std::endl;
@@ -86,13 +101,13 @@ bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int
             std::cerr << "Fatal error: image cannot open!" << std::endl;
             return false;
         }
-        cv::Mat pr_img = preprocess_img(temp, input_w_, input_h_);
-        input_imgs_.push_back(pr_img);
+        std::vector<float> input_data = preprocess_img(temp, input_w_, input_h_);
+        memcpy(ptr, input_data.data(), (int)(input_data.size()) * sizeof(float));
+        ptr += input_data.size();
     }
     img_idx_ += batch_size_;
-    cv::Mat blob = cv::dnn::blobFromImages(input_imgs_, 1.0 / 0.225, cv::Size(input_w_, input_h_), cv::Scalar(0.485, 0.456, 0.406), true, false);
 
-    cudaMemcpy(device_input_, blob.ptr<float>(0), input_count_ * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_input_, batch_data, input_count_ * sizeof(float), cudaMemcpyHostToDevice);
     bindings[0] = device_input_;
     return true;
 }

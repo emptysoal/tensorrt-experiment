@@ -1,4 +1,5 @@
 # Comparative experiment of inference speed for different TensorRT api
+[README中文版](https://github.com/emptysoal/tensorrt-experiment/blob/main/README-chinese.md)
 
 ## Introduction
 
@@ -59,10 +60,10 @@ https://github.com/wang-xinyu/tensorrtx
 
 ```bash
 project dir
-	├── flower_classify_dataset  # Dataset used for classification, 5 kind of flowers, link below 
-	│   ├── train
-	│   ├── val
-	│   └── test
+    ├── flower_classify_dataset  # Dataset used for classification, 5 kind of flowers, link below 
+    │   ├── train
+    │   ├── val
+    │   └── test
     ├── Camvid_segment_dataset  # Dataset used for segmentation，link below 
     │   ├── images  # original images
     |   │   ├── train
@@ -71,9 +72,9 @@ project dir
     │   ├── labels  # mask labels，Consists of the category index 
     │   ├── train.lst  # format: train_image_path'\t'train_label_path
     │   ├── val.lst  # format: valid_image_path'\t'valid_label_path
-	│   └── labels.txt  # category index and it's color
-	├── VGG16
-	│   ├── PyTorch
+    │   └── labels.txt  # category index and it's color
+    ├── VGG16
+    │   ├── PyTorch
     │   │   ├── dataset.py
     │   │   ├── model  # auto generated after running train.py, '.pth' type model file will be here
     │   │   ├── pytorch_inference.py  # use pytorch api inference
@@ -109,32 +110,32 @@ project dir
     │               ├── trt_infer.py  # onnx to tensorrt plan file, and tensorrt python api inference
     │               └── vgg.py
     ├── ResNet50  # The file structure is basically the same as VGG16
-	│   ├── PyTorch
-	│   └── TensorRT
-	│       ├── C++
-	│       │   ├── api_model
-	│       │   └── onnx_parser
-	│       └── python
-	│           ├── api_model
-	│           └── onnx_parser
-	├── UNet  # The file structure is basically the same as VGG16
-	│   ├── PyTorch
-	│   └── TensorRT
-	│       ├── C++
-	│       │   ├── api_model
-	│       │   └── onnx_parser
-	│       └── python
-	│           ├── api_model
-	│           └── onnx_parser
-	└── Deeplabv3+  # The file structure is basically the same as VGG16
-	    ├── PyTorch
-	    └── TensorRT
-	        ├── C++
-	        │   ├── api_model
-	        │   └── onnx_parser
-	        └── python
-	            ├── api_model
-	            └── onnx_parser
+    │   ├── PyTorch
+    │   └── TensorRT
+    │       ├── C++
+    │       │   ├── api_model
+    │       │   └── onnx_parser
+    │       └── python
+    │           ├── api_model
+    │           └── onnx_parser
+    ├── UNet  # The file structure is basically the same as VGG16
+    │   ├── PyTorch
+    │   └── TensorRT
+    │       ├── C++
+    │       │   ├── api_model
+    │       │   └── onnx_parser
+    │       └── python
+    │           ├── api_model
+    │           └── onnx_parser
+    └── Deeplabv3+  # The file structure is basically the same as VGG16
+        ├── PyTorch
+        └── TensorRT
+            ├── C++
+            │   ├── api_model
+            │   └── onnx_parser
+            └── python
+                ├── api_model
+                └── onnx_parser
 ```
 
 - For details on the operation of each subproject, please read README under the specific subproject directory 

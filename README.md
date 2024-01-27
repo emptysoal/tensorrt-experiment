@@ -59,7 +59,7 @@ https://github.com/wang-xinyu/tensorrtx
 
 ```bash
 project dir
-    ├── flower_classify_dataset  # 分类项目所用到的数据集，5种花的分类，完整数据集可通过下方链接获取
+    ├── flower_classify_dataset  # 分类项目所用到的数据集，5种花的分类，完整数据集可通过下方的链接获取
     │   ├── train
     │   ├── val
     │   └── test

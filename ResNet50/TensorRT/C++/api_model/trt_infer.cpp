@@ -327,8 +327,8 @@ int run()
     }
 
     // prepare input data and output data ---------------------------
-    float inputData[3 * inputHeight * inputWidth];
-    float outputData[classesNum];
+    static float inputData[3 * inputHeight * inputWidth];
+    static float outputData[classesNum];
 
     std::vector<std::string> file_names;
     if (read_files_in_dir(testDataPath.c_str(), file_names) < 0) {

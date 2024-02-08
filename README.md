@@ -71,9 +71,9 @@
 
 |                                |  FP32  |   FP16    |
 | ------------------------------ | :----: | :-------: |
-| Deeplabv3+,  cpp-preprocess    | 152 ms |    --     |
+| Deeplabv3+,  cpp-preprocess    | 152 ms |   63 ms   |
 | Deeplabv3+,  cuda-preprocess   | 143 ms | **54 ms** |
-| YOLOv5-v5.0,  cpp-preprocess   | 45 ms  |    --     |
+| YOLOv5-v5.0,  cpp-preprocess   | 45 ms  |   36 ms   |
 | YOLOv5-v5.0,   cuda-preprocess | 38 ms  | **28 ms** |
 
 ## 参考链接

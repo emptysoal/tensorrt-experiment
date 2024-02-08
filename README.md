@@ -54,15 +54,15 @@
 
 **补充内容**
 
-展示由 **`CUDA` 做图像预处理**，速度进一步提升的结果
+使用**CUDA编程做图像预处理**，速度进一步提升的结果
 
 - 基于 `x86_64 Linux ` ，具体环境见下方环境构建
 
 |                                | FP32  |   FP16   | INT8  |
 | ------------------------------ | :---: | :------: | :---: |
-| Deeplabv3+                     | 22 ms |  12 ms   | 10 ms |
+| Deeplabv3+,  cpp-preprocess    | 22 ms |  12 ms   | 10 ms |
 | Deeplabv3+,  cuda-preprocess   | 15 ms | **5 ms** | 3 ms  |
-| YOLOv5-v5.0                    | 12 ms |   8 ms   | 6 ms  |
+| YOLOv5-v5.0,  cpp-preprocess   | 12 ms |   8 ms   | 6 ms  |
 | YOLOv5-v5.0,   cuda-preprocess | 6 ms  | **3 ms** | 3 ms  |
 
 数据来源：作者的另外 2 个项目 [CUDA加速图像处理](https://github.com/emptysoal/cuda-image-preprocess/tree/main) ，[TensorRT-YOLOv5-v5.0](https://github.com/emptysoal/TensorRT-v8-YOLOv5-v5.0/tree/main)
@@ -71,9 +71,9 @@
 
 |                                |  FP32  |   FP16    |
 | ------------------------------ | :----: | :-------: |
-| Deeplabv3+                     | 152 ms |    --     |
+| Deeplabv3+,  cpp-preprocess    | 152 ms |    --     |
 | Deeplabv3+,  cuda-preprocess   | 143 ms | **54 ms** |
-| YOLOv5-v5.0                    | 45 ms  |    --     |
+| YOLOv5-v5.0,  cpp-preprocess   | 45 ms  |    --     |
 | YOLOv5-v5.0,   cuda-preprocess | 38 ms  | **28 ms** |
 
 ## 参考链接

@@ -262,6 +262,7 @@ ICudaEngine* getEngine()
         INetworkDefinition *  network     = builder->createNetworkV2(1U << int(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
         IOptimizationProfile* profile     = builder->createOptimizationProfile();
         IBuilderConfig *      config      = builder->createBuilderConfig();
+        config->setMaxWorkspaceSize(1 << 30);
         IInt8Calibrator *     pCalibrator = nullptr;
         if (bFP16Mode)
         {

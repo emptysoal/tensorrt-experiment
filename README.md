@@ -10,7 +10,7 @@
 
 - 流程：
 
-1. 使用 PyTorch 实现或收集了一些经典的 CNN 网络，训练得到`.pth`模型文件；
+1. 使用 PyTorch 实现和收集了一些经典的 CNN 网络，训练得到`.pth`模型文件；
 2. TensorRT 和 cuda 的 python api :
    - OnnxParser构建网络：model.pth -> model.onnx -> model.plan；
    - TensorRT API逐层构建网络：model.pth -> model.npz-> model.plan；
